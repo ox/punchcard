@@ -13,6 +13,21 @@ Features:
 - [x] Read 026ftn Encoding
 - [x] Read EBCDIC Encoding
 
+## Installation
+
+```
+go install github.com/ox/punchcard/cmd/punchcard
+```
+
+## Usage
+
+You can read some of the example cards like so:
+
+```
+$ punchcard ./brainfuck.card
+...
+```
+
 ---
 
 > a card-image file, 12 bits/column, 80 columns/card.
