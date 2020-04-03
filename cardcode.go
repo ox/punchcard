@@ -24,7 +24,6 @@ type Encoding int
 
 func (e Encoding) String() string {
 	switch (e) {
-	case Invalid: return "Invalid"
 	case Zero26comm: return "Zero26comm"
 	case Zero26ftn: return "Zero26ftn"
 	case Zero29ftn: return "Zero29ftn"
@@ -46,14 +45,14 @@ func GetEncodingTable(e Encoding) []uint32 {
 	return encodings[e]
 }
 
-func EncodingFromString(s string) (Encoding, inval) {
+func EncodingFromString(s string) (Encoding, error) {
 	switch (s) {
 	case "026comm": return Zero26comm, nil
 	case "026ftn": return Zero26ftn, nil
 	case "029ftn": return Zero29ftn, nil
 	case "EBCDIC": return EBCDIC, nil
 	default:
-		return Zero26comm, fmt.invalf("Invalid encoding '%s'", s)
+		return Zero26comm, fmt.Errorf("Invalid encoding '%s'", s)
 	}
 }
 

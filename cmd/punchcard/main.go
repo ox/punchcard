@@ -1,11 +1,9 @@
 package main
 
 import (
-  "bytes"
   "errors"
   "flag"
   "fmt"
-  "io"
 	"io/ioutil"
 	"log"
   "os"

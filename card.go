@@ -1,5 +1,12 @@
 package punchcard
 
+import (
+  "bytes"
+  "errors"
+  "fmt"
+  "io"
+)
+
 func Read(card []byte, encoding Encoding) (*bytes.Buffer, error) {
   // verify that it has the H80/H82 header format and skip over it
   format := 80
@@ -15,7 +22,7 @@ func Read(card []byte, encoding Encoding) (*bytes.Buffer, error) {
   }
 
   buff := bytes.NewBuffer(card[3:])
-  ascii_code := punchcard.GetEncodingTable(encoding)
+  ascii_code := GetEncodingTable(encoding)
   text := bytes.NewBuffer([]byte{})
 
   for {
