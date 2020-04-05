@@ -7,6 +7,72 @@ import (
   "io"
 )
 
+type card struct {
+  encoding Encoding
+  content *bytes.Buffer
+}
+
+func (c *card) Bytes() []byte {
+  return c.content.Bytes()
+}
+
+func New(encoding Encoding, contents *bytes.Buffer) *card {
+  content := bytes.NewBuffer([]byte("H80"))
+
+  lines := make([][]byte, 0)
+
+  for {
+    line := []byte{}
+
+    for i := 0; i < 80; {
+      byte, err := content.ReadByte()
+      if err == io.EOF {
+        break
+      }
+
+      // blank out the rest of the card if we find a newline
+      if byte == '\n' {
+        for ; i < 80; i++ {
+          line[i] = ' '
+        }
+      } else if byte == '\t' {
+        for k := i; k < 80 && k < i + 4; k++ {
+          line[i] = ' '
+        }
+        i+=4
+      } else {
+        line[i] = byte
+        i++
+      }
+    }
+
+    lines[len(lines)-1] = line
+  }
+
+  encodingTable := GetEncodingTable(encoding)
+
+  for _, line := range lines {
+    content.Write([]byte{0,0,0})
+
+    for i := 0; i < 80; {
+      even := line[i]
+      odd := line[i+1]
+      i += 2
+
+      evenCol := encodingTable[even]
+      oddCol := encodingTable[odd]
+
+      a := evenCol >> 4
+      b := ((evenCol & 017) << 4) | (oddCol >> 8)
+      c := oddCol & 00377
+
+      content.Write([]byte{byte(a), byte(b), byte(c)})
+    }
+  }
+
+  return &card{encoding, content}
+}
+
 func Read(card []byte, encoding Encoding) (*bytes.Buffer, error) {
   // verify that it has the H80/H82 header format and skip over it
   format := 80
