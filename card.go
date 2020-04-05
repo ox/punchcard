@@ -16,16 +16,16 @@ func (c *card) Bytes() []byte {
   return c.content.Bytes()
 }
 
-func New(encoding Encoding, contents *bytes.Buffer) *card {
-  content := bytes.NewBuffer([]byte("H80"))
+func New(encoding Encoding, contents *bytes.Buffer) (*card, error) {
+  body := bytes.NewBufferString("H80")
 
   lines := make([][]byte, 0)
 
-  for {
-    line := []byte{}
+  for ; contents.Len() > 0; {
+    line := make([]byte, 80)
 
     for i := 0; i < 80; {
-      byte, err := content.ReadByte()
+      byte, err := contents.ReadByte()
       if err == io.EOF {
         break
       }
@@ -46,17 +46,20 @@ func New(encoding Encoding, contents *bytes.Buffer) *card {
       }
     }
 
-    lines[len(lines)-1] = line
+    lines = append(lines, line)
   }
 
   encodingTable := GetEncodingTable(encoding)
+  if len(encodingTable) == 0 {
+    return nil, fmt.Errorf("Could not get encoding table '%s'", encoding)
+  }
 
   for _, line := range lines {
-    content.Write([]byte{0,0,0})
+    body.Write([]byte{0x80,0x80,0x80})
 
-    for i := 0; i < 80; {
-      even := line[i]
-      odd := line[i+1]
+    for i := 0; i < len(line); {
+      even := byte(line[i])
+      odd := byte(line[i+1])
       i += 2
 
       evenCol := encodingTable[even]
@@ -66,11 +69,11 @@ func New(encoding Encoding, contents *bytes.Buffer) *card {
       b := ((evenCol & 017) << 4) | (oddCol >> 8)
       c := oddCol & 00377
 
-      content.Write([]byte{byte(a), byte(b), byte(c)})
+      body.Write([]byte{byte(a), byte(b), byte(c)})
     }
   }
 
-  return &card{encoding, content}
+  return &card{encoding, body}, nil
 }
 
 func Read(card []byte, encoding Encoding) (*bytes.Buffer, error) {
@@ -88,7 +91,7 @@ func Read(card []byte, encoding Encoding) (*bytes.Buffer, error) {
   }
 
   buff := bytes.NewBuffer(card[3:])
-  ascii_code := GetEncodingTable(encoding)
+  ascii_code := GetDecodingTable(encoding)
   text := bytes.NewBuffer([]byte{})
 
   for {

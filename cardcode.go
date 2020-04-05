@@ -39,10 +39,15 @@ const (
 	EBCDIC
 )
 
+var decodings = make(map[Encoding][]uint32)
 var encodings = make(map[Encoding][]uint32)
 
 func GetEncodingTable(e Encoding) []uint32 {
 	return encodings[e]
+}
+
+func GetDecodingTable(e Encoding) []uint32 {
+	return decodings[e]
 }
 
 func EncodingFromString(s string) (Encoding, error) {
@@ -58,9 +63,9 @@ func EncodingFromString(s string) (Encoding, error) {
 
 func init() {
 	for _, encoding := range []Encoding{Zero26comm, Zero26ftn, Zero29ftn, EBCDIC} {
-		encodings[encoding] = make([]uint32, 4096)
-	  for i := 0; i < len(encodings[encoding]); i += 1 {
-    	encodings[encoding][i] = '~'
+		decodings[encoding] = make([]uint32, 4096)
+	  for i := 0; i < len(decodings[encoding]); i += 1 {
+    	decodings[encoding][i] = '~'
 	  }
 
 		start := ' '
@@ -82,8 +87,10 @@ func init() {
 			table = ebcdic_code
 		}
 
+		encodings[encoding] = table
+
 		for i := start; i <= end; i += 1 {
-			encodings[encoding][table[i]] = uint32(i)
+			decodings[encoding][table[i]] = uint32(i)
 		}
 	}
 }
