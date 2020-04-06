@@ -1,2 +1,4 @@
 jones
 .DS_Store
+cmd/punchcard-reader/punchcard-reader
+cmd/punchcard-writer/punchcard-writer

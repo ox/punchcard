@@ -53,5 +53,5 @@ func main() {
     return
   }
 
-  fmt.Println(card.Bytes())
+  fmt.Print(card.Bytes())
 }

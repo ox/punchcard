@@ -1,22 +1,46 @@
-# Punchcard Reader
+# Punchcard Toolkit
 
 This program reads a binary file into the punchcard format specified in [Emulated Punched Card Decks](https://homepage.divms.uiowa.edu/~jones/cards/format.html). After reading the deck and card preambles, it converts 12 bits at a time into ASCII. The end goal is to be able to pipe these into Fortran or Algol programs and function as sort of an OS.
 
 The codebase references [`cardlist.txt`](https://homepage.divms.uiowa.edu/~jones/cards/cardlist.txt), and [`cardcode.i.txt`](https://homepage.divms.uiowa.edu/~jones/cards/cardcode.i.txt); both by Douglas Jones.
 
-## Installation
+## Reader
+
+### Installation
 
 ```
 go install github.com/ox/punchcard/cmd/punchcard-reader
 ```
 
-## Usage
+### Usage
 
 You can read some of the example cards like so:
 
 ```
 $ punchcard-reader ./brainfuck.card
 ...
+```
+
+## Writer
+
+### Installation
+
+```
+go install github.com/ox/punchcard/cmd/punchcard-writer
+```
+
+### Usage
+
+Pass in files you want to encode in the punchcard format as arguments to the `punchcard-writer` tool. You can optionally specify the location for the output to be written to.
+
+```
+$ cat hello.txt
+hello world!
+
+$ punchcard-writer -output hello.txt.card hello.txt
+
+$ punchcard-reader ./hello.txt.card
+HELLO WORLD!
 ```
 
 ## The Card Format
