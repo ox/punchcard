@@ -7,16 +7,61 @@ import (
 	"io"
 )
 
-type card struct {
-	encoding Encoding
-	content  *bytes.Buffer
+// inval is an invalid character, shows up as `~` in the output
+var inval uint32 = 00404
+
+var decodings = make(map[Encoding][]uint32)
+var encodings = make(map[Encoding][]uint32)
+
+type Encoding interface {
+	start() int
+	end() int
+	table() []uint32
+
+	Encode(*bytes.Buffer) *bytes.Buffer
+	Decode(*bytes.Buffer) (*bytes.Buffer, error)
 }
 
-func (c *card) Bytes() []byte {
-	return c.content.Bytes()
+func EncodingFromString(s string) (Encoding, error) {
+	switch s {
+	case "026comm":
+		return Zero26Comm{}, nil
+	case "026ftn":
+		return Zero26Ftn{}, nil
+	case "029ftn":
+		return Zero29Ftn{}, nil
+	case "EBCDIC":
+		return EBCDIC{}, nil
+	default:
+		return Zero26Comm{}, fmt.Errorf("Invalid encoding '%s'", s)
+	}
 }
 
-func New(encoding Encoding, contents *bytes.Buffer) (*card, error) {
+func init() {
+	encs := []Encoding{
+		Zero26Comm{},
+		Zero26Ftn{},
+		Zero29Ftn{},
+		EBCDIC{},
+	}
+
+	for _, encoding := range encs {
+		decodings[encoding] = make([]uint32, 4096)
+		for i := 0; i < len(decodings[encoding]); i++ {
+			decodings[encoding][i] = '~'
+		}
+
+		table := encoding.table()
+		encodings[encoding] = table
+
+		for i := encoding.start(); i <= encoding.end(); i++ {
+			decodings[encoding][table[i]] = uint32(i)
+		}
+	}
+}
+
+func encode(contents *bytes.Buffer, e Encoding) *bytes.Buffer {
+	encodingTable := encodings[e]
 	body := bytes.NewBufferString("H80")
 
 	lines := make([][]byte, 0)
@@ -49,11 +94,6 @@ func New(encoding Encoding, contents *bytes.Buffer) (*card, error) {
 		lines = append(lines, line)
 	}
 
-	encodingTable := GetEncodingTable(encoding)
-	if len(encodingTable) == 0 {
-		return nil, fmt.Errorf("Could not get encoding table '%s'", encoding)
-	}
-
 	for _, line := range lines {
 		body.Write([]byte{0x80, 0x80, 0x80})
 
@@ -73,31 +113,32 @@ func New(encoding Encoding, contents *bytes.Buffer) (*card, error) {
 		}
 	}
 
-	return &card{encoding, body}, nil
+	return body
 }
 
-func Read(card []byte, encoding Encoding) (*bytes.Buffer, error) {
+func decode(contents *bytes.Buffer, e Encoding) (*bytes.Buffer, error) {
 	// verify that it has the H80/H82 header format and skip over it
 	format := 80
 	endCol := 80
 
-	if bytes.Equal(card[0:3], []byte("H80")) {
+	header := contents.Next(3)
 
-	} else if bytes.Equal(card[0:3], []byte("H82")) {
+	if bytes.Equal(header, []byte("H80")) {
+
+	} else if bytes.Equal(header, []byte("H82")) {
 		endCol = 82
 		format = 82
 	} else {
 		return nil, errors.New("Invalid card, missing valid header")
 	}
 
-	buff := bytes.NewBuffer(card[3:])
-	ascii_code := GetDecodingTable(encoding)
+	decodingTable := decodings[e]
 	text := bytes.NewBuffer([]byte{})
 
 	for {
 		// First 3 bytes are the card metadata
 		metadata := make([]byte, 3)
-		if _, err := buff.Read(metadata); err == io.EOF {
+		if _, err := contents.Read(metadata); err == io.EOF {
 			return text, nil
 		}
 
@@ -107,7 +148,7 @@ func Read(card []byte, encoding Encoding) (*bytes.Buffer, error) {
 		for i := 0; i < endCol; {
 			// Get 3 bytes, and cast them to uint32
 			cols := make([]byte, 3)
-			if _, err := buff.Read(cols); err != nil {
+			if _, err := contents.Read(cols); err != nil {
 				return nil, fmt.Errorf("Card body read error: %w", err)
 			}
 
@@ -117,13 +158,13 @@ func Read(card []byte, encoding Encoding) (*bytes.Buffer, error) {
 
 			// Left column
 			left := (a << 4) | (b >> 4)
-			line.Write([]byte(string(ascii_code[left])))
-			i += 1
+			line.Write([]byte(string(decodingTable[left])))
+			i++
 
 			// Right column
 			right := ((b & 0017) << 8) | c
-			line.Write([]byte(string(ascii_code[right])))
-			i += 1
+			line.Write([]byte(string(decodingTable[right])))
+			i++
 		}
 
 		if format == 82 {
@@ -134,6 +175,4 @@ func Read(card []byte, encoding Encoding) (*bytes.Buffer, error) {
 
 		text.Write([]byte("\n"))
 	}
-
-	return text, nil
 }
